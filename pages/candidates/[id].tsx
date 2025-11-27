@@ -47,6 +47,16 @@ export default function CandidateProfilePage({ candidate }: Props) {
   const rawSkills = (candidate.skills_raw || "").split(",").map((s: string) => s.trim()).filter(Boolean);
   const allSkills = Array.from(new Set([...topSkills, ...rawSkills]));
 
+  const toDrivePreview = (url: string) => {
+  if (!url) return url;
+  const match = url.match(/\/d\/(.*?)\//);
+  if (match && match[1]) {
+    return `https://drive.google.com/file/d/${match[1]}/preview`;
+  }
+  return url;
+};
+
+
   return (
     <>
       {/* Sticky Header */}
@@ -125,9 +135,6 @@ export default function CandidateProfilePage({ candidate }: Props) {
                   ) : (
                     <Button disabled variant="flat" className="px-8 opacity-50">No Resume</Button>
                   )}
-                  <div className="flex gap-2 justify-center">
-                    <span className="text-xs text-gray-400">ID: {candidate.id.slice(0, 8)}</span>
-                  </div>
                 </div>
 
               </div>
@@ -154,13 +161,16 @@ export default function CandidateProfilePage({ candidate }: Props) {
                       <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Notice Period</p>
                       <p className="text-lg font-bold text-gray-900">{candidate.notice_period || "—"}</p>
                     </div>
-                    <div>
+                    {/* <div>
                       <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Current CTC</p>
                       <p className="text-lg font-bold text-gray-900">{candidate.current_ctc || "—"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Expected CTC</p>
                       <p className="text-lg font-bold text-gray-900">{candidate.expected_ctc || "—"}</p>
+                    </div> */}
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Worked At</p>
                     </div>
                   </div>
                 </CardBody>
@@ -199,7 +209,7 @@ export default function CandidateProfilePage({ candidate }: Props) {
                      <div>
                        <p className="text-xs text-gray-400">Education</p>
                        <p className="font-medium text-gray-900 leading-tight">{candidate.qualification || "—"}</p>
-                       <p className="text-xs text-gray-500 mt-0.5">{candidate.college_name}</p>
+                       <p className="text-xs text-gray-500 mt-0.5">{candidate.college_name.split(",")[0]}</p>
                      </div>
                    </div>
                 </CardBody>
@@ -211,7 +221,7 @@ export default function CandidateProfilePage({ candidate }: Props) {
             <div className="md:col-span-2 space-y-6">
               
               {/* Internal Feedback Section (Only if data exists) */}
-              {(candidate.feedback || candidate.remark || candidate.jd_brief) && (
+              {/* {(candidate.feedback || candidate.remark || candidate.jd_brief) && (
                 <Card className="shadow-sm border border-yellow-200 bg-yellow-50/30">
                   <CardHeader className="pb-0 pt-5 px-5">
                     <h3 className="font-bold text-yellow-800 flex items-center gap-2">
@@ -239,7 +249,7 @@ export default function CandidateProfilePage({ candidate }: Props) {
                      )}
                   </CardBody>
                 </Card>
-              )}
+              )} */}
 
               {/* Skills Section */}
               <Card className="shadow-sm border border-gray-100">
@@ -297,11 +307,24 @@ export default function CandidateProfilePage({ candidate }: Props) {
                     </div>
                 </CardBody>
               </Card>
-              
-              <div className="flex justify-end text-xs text-gray-400 gap-4 px-2">
-                <span>Unique ID: {candidate.portal_unique_id || "N/A"}</span>
-                <span>Last Updated: {candidate.updated_at ? new Date(candidate.updated_at).toLocaleDateString() : "N/A"}</span>
-              </div>
+
+              {/* Webpage load using url */}
+              {candidate.resume_url && (
+                <Card className="shadow-sm border border-gray-100">
+                  <CardHeader className="pb-0 pt-5 px-5">
+                    <h3 className="font-bold text-gray-700">Resume Website Preview</h3>
+                  </CardHeader>
+
+                  <CardBody className="p-5">
+                    <iframe
+                      src={toDrivePreview(candidate.resume_url)}
+                      title="Resume Website"
+                      className="w-full h-[500px] rounded border"
+                      sandbox="allow-scripts allow-same-origin allow-popups"
+                    />
+                  </CardBody>
+                </Card>
+              )}
 
             </div>
           </div>

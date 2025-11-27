@@ -15,7 +15,7 @@ import { ScrollShadow } from "@heroui/scroll-shadow";
 import { Select, SelectItem } from "@heroui/select";
 
 // Icons
-import { SearchIcon, MapPinIcon, BriefcaseIcon, AcademicCapIcon, CalendarIcon, StarFilledIcon } from "@/components/icons"; // Ensure you have these or similar icons
+import { SearchIcon, MapPinIcon, BriefcaseIcon, AcademicCapIcon, CalendarIcon, StarFilledIcon, Logo } from "@/components/icons"; // Ensure you have these or similar icons
 import Link from "next/link";
 
 export default function CandidatesPage() {
@@ -152,7 +152,10 @@ export default function CandidatesPage() {
   return (
     <>
     <div className="h-12 px-20 backdrop-blur-sm border-b border-gray-200 flex items-center gap-4 fixed top-0 left-0 right-0 z-10">
-
+      <Link href="/" className="flex items-center gap-2">
+        <Logo className="text-black" />
+        <span className="font-bold text-black uppercase">ResDex</span>
+      </Link>
     </div>
     <div className="min-h-screen p-6 flex gap-6 relative max-w-5xl mx-auto pt-18">
       
@@ -408,7 +411,7 @@ export default function CandidatesPage() {
                         <div className="flex items-center gap-2 text-gray-500 text-sm">
                           <AcademicCapIcon className="w-4 h-4 text-gray-400" />
                           <span title={c.qualification}>
-                            <span className="text-black font-semibold">{c.qualification || "N/A"}</span> from <span className="font-semibold text-black">{c.college_name || "N/A"}</span>
+                            <span className="text-black font-semibold">{c.qualification || "N/A"}</span> from <span className="font-semibold text-black">{c.college_name?.split(",")[0] || "N/A"}</span>
                           </span>
                         </div>
 
