@@ -9,6 +9,7 @@ declare global {
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 
   // ⭐ THIS IS THE FIX:
   // pg.Pool does NOT apply search_path unless set in "connection parameters"
