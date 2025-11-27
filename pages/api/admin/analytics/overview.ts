@@ -1,11 +1,25 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@/lib/prisma";
 
+// Simple in-memory cache for the analytics overview response.
+// Note: this is process-local and works well for a single-instance server or dev mode.
+// For multi-instance production, replace with Redis or another shared cache.
+let cachedOverview: { data: any; expiresAt: number } | null = null;
+const CACHE_TTL_SECONDS = 30; // tune as needed
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ message: "Method not allowed" });
 
   const isAdmin = req.cookies?.admin_auth === "valid";
   if (!isAdmin) return res.status(403).json({ message: "Forbidden" });
+
+  // Return cached response when available and not expired
+  if (cachedOverview && Date.now() < cachedOverview.expiresAt) {
+    res.setHeader('X-Cache', 'HIT')
+    // advise clients to cache briefly as well
+    res.setHeader('Cache-Control', `private, max-age=${Math.max(0, Math.floor((cachedOverview.expiresAt - Date.now()) / 1000))}`)
+    return res.status(200).json(cachedOverview.data);
+  }
 
   try {
     // Total counts
@@ -92,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       resume_count: r.resume_count,
     }));
 
-    return res.status(200).json({
+    const payload = {
       totals: {
         profileViews: totalProfileViews,
         resumeViews: totalResumeViews,
@@ -101,7 +115,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       topCandidates,
       topViewers,
       viewersSummary,
-    });
+    };
+
+    // populate cache
+    cachedOverview = {
+      data: payload,
+      expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000,
+    };
+
+    res.setHeader('X-Cache', 'MISS')
+    res.setHeader('Cache-Control', `private, max-age=${CACHE_TTL_SECONDS}`)
+    return res.status(200).json(payload);
   } catch (err) {
     console.error('Failed to compute analytics overview', err);
     return res.status(500).json({ message: 'Server error' });
