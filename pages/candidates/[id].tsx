@@ -59,278 +59,178 @@ export default function CandidateProfilePage({ candidate }: Props) {
 
   return (
     <>
-      {/* Sticky Header */}
-      <div className="h-16 px-6 md:px-20 backdrop-blur-md bg-white/80 border-b border-gray-200 flex items-center justify-between sticky top-0 z-20">
-        <Link href="/candidates" className="flex items-center gap-2 text-sm text-gray-600 hover:text-black transition-colors font-medium">
-          <ChevronLeftIcon className="w-4 h-4" />
-          Back to List
-        </Link>
-        <div className="text-sm text-gray-400">
-          Added {candidate.portal_date ? new Date(candidate.portal_date).toLocaleDateString() : 'N/A'}
-        </div>
-      </div>
+      {/* PAGE WRAPPER */}
+<div className="min-h-screen bg-gray-50">
 
-      <div className="min-h-screen p-6 bg-gray-50/50">
-        <div className="max-w-5xl mx-auto space-y-6">
+  {/* ==== STICKY HEADER ==== */}
+  <div className="h-16 px-6 md:px-20 backdrop-blur-md bg-white/80 border-b border-gray-200 flex items-center justify-between sticky top-0 z-20">
+    <Link href="/candidates" className="flex items-center gap-2 text-sm text-gray-600 hover:text-black transition-colors font-medium">
+      <ChevronLeftIcon className="w-4 h-4" />
+      Back to List
+    </Link>
+    <div className="text-sm text-gray-400">
+      Added {candidate.portal_date ? new Date(candidate.portal_date).toLocaleDateString() : 'N/A'}
+    </div>
+  </div>
+
+  {/* ==== MAIN GRID ==== */}
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 max-w-7xl mx-auto">
+
+    {/* ====================================== */}
+    {/* LEFT SIDEBAR (PROFILE / SKILLS / CONTACT) */}
+    {/* ====================================== */}
+    <div className="col-span-1 space-y-6">
+
+      {/* Profile card */}
+      <Card className="shadow-sm border border-gray-100">
+        <CardBody className="py-6 flex flex-col items-start text-center -mb-4">
+          <div className="w-full pl-3 z-10">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gray-700 to-black text-white flex items-center justify-start text-3xl font-bold mt-5 z-10 border-4 border-white">
+            <img src="/person.png" alt="" className="w-full h-full rounded-xl" />
+          </div>
+          </div>
           
-          {/* 1. Header Card (Avatar + Designation + Action) */}
-          <Card className="w-full shadow-sm border border-gray-100">
-            <CardBody className="p-6 md:p-8">
-              <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
-                
-                <div className="flex items-center gap-5">
-                  {/* Large Avatar */}
-                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-gray-700 to-black flex items-center justify-center text-white text-3xl font-bold shadow-lg shrink-0">
-                    {candidate.full_name?.charAt(0).toUpperCase()}
-                  </div>
-                  
-                  <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{candidate.full_name}</h1>
-                    <div className="flex flex-wrap items-center gap-2 mt-2 text-gray-600 font-medium text-lg">
-                      <BriefcaseIcon className="w-5 h-5 text-gray-400" />
-                      <span>{candidate.current_designation || "No Designation"}</span>
-                      <span className="text-gray-300 mx-1">|</span>
-                      <span>{candidate.current_company || "Unknown Company"}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                      <div className="flex items-center gap-1.5">
-                         <MapPinIcon className="w-4 h-4" />
-                         {candidate.location || "N/A"}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                         <Chip size="sm" variant="flat" className="bg-blue-50 text-blue-700 h-5 text-xs px-1">
-                            {candidate.source_portal || "Manual"}
-                         </Chip>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          <div className="w-[92%] bg-gradient-to-b from-blue-400 rounded-lg h-20 absolute top-4">
+            <img src="/blue-bg.jpg" className="w-full h-full rounded-lg" alt="" />
+          </div>
 
-                {/* Actions */}
-                <div className="flex flex-col gap-3 w-full md:w-auto">
-                  {candidate.resume_url ? (
-                    <Button
-                      onClick={async (e: any) => {
-                        e.preventDefault();
-                        try {
-                          await fetch('/api/analytics/view-resume', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify({ candidateId: candidate.id }),
-                          });
-                        } catch (err) {
-                          console.error('Failed to log resume view', err);
-                        } finally {
-                          // Open resume in a new tab regardless of logging result
-                          window.open(candidate.resume_url, '_blank');
-                        }
-                      }}
-                      color="primary"
-                      className="px-8 font-semibold shadow-md"
-                    >
-                      View Resume
-                    </Button>
-                  ) : (
-                    <Button disabled variant="flat" className="px-8 opacity-50">No Resume</Button>
-                  )}
-                </div>
+          <h1 className="text-xl font-bold mt-4 ml-3 flex items-center">{candidate.full_name}
+            <span className="bg-purple-200 text-purple-600 rounded-full font-medium text-xs px-1 py-0.5 ml-2">{candidate.current_designation || "No Designation"}</span>
+          </h1>
 
-              </div>
-            </CardBody>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <p className="text-sm text-gray-500 mt-1 ml-3">
+              
             
-            {/* 2. Left Column: Stats & Contact */}
-            <div className="space-y-6">
-              
-              {/* Professional Stats */}
-              <Card className="shadow-sm border border-gray-100">
-                <CardHeader className="pb-0 pt-5 px-5 flex justify-between items-center">
-                  <h3 className="font-bold text-gray-700">Snapshot</h3>
-                </CardHeader>
-                <CardBody className="p-5">
-                  <div className="grid grid-cols-2 gap-y-6 gap-x-2">
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Experience</p>
-                      <p className="text-lg font-bold text-gray-900">{candidate.total_experience ?? 0} Yrs</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Notice Period</p>
-                      <p className="text-lg font-bold text-gray-900">{candidate.notice_period || "—"}</p>
-                    </div>
-                    {/* <div>
-                      <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Current CTC</p>
-                      <p className="text-lg font-bold text-gray-900">{candidate.current_ctc || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Expected CTC</p>
-                      <p className="text-lg font-bold text-gray-900">{candidate.expected_ctc || "—"}</p>
-                    </div> */}
-                    <div className="col-span-2">
-                      <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Worked At</p>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
+          </p>
 
-              {/* Contact Info */}
-              <Card className="shadow-sm border border-gray-100">
-                <CardHeader className="pb-0 pt-5 px-5">
-                   <h3 className="font-bold text-gray-700">Contact Details</h3>
-                </CardHeader>
-                <CardBody className="p-5 space-y-4">
-                   <div className="flex items-start gap-3">
-                     <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
-                       <MailIcon className="w-4 h-4 text-gray-500" />
-                     </div>
-                     <div className="overflow-hidden">
-                       <p className="text-xs text-gray-400">Email</p>
-                       <p className="font-medium text-gray-900 truncate" title={candidate.email}>{candidate.email || "—"}</p>
-                     </div>
-                   </div>
-                   <Divider className="my-1"/>
-                   <div className="flex items-start gap-3">
-                     <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
-                       <PhoneIcon className="w-4 h-4 text-gray-500" />
-                     </div>
-                     <div>
-                       <p className="text-xs text-gray-400">Phone</p>
-                       <p className="font-medium text-gray-900">{candidate.phone || "—"}</p>
-                     </div>
-                   </div>
-                   <Divider className="my-1"/>
-                   <div className="flex items-start gap-3">
-                     <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
-                       <AcademicCapIcon className="w-4 h-4 text-gray-500" />
-                     </div>
-                     <div>
-                       <p className="text-xs text-gray-400">Education</p>
-                       <p className="font-medium text-gray-900 leading-tight">{candidate.qualification || "—"}</p>
-                       <p className="text-xs text-gray-500 mt-0.5">{candidate.college_name.split(",")[0]}</p>
-                     </div>
-                   </div>
-                </CardBody>
-              </Card>
+          <Chip size="sm" variant="flat" className="mt-3 bg-blue-50 text-blue-700 ml-3">
+            {candidate.source_portal || "Manual"}
+          </Chip>
 
+          <div className="shadow-lg border border-gray-200 rounded-xl p-2 flex w-full mt-4">
+            <MapPinIcon className="text-white bg-black border-1.5 h-10 w-10 p-2 rounded-lg" />
+            <div className="ml-3">
+              <p className="text-xs text-gray-400">Location</p>
+              <p className="font-medium">{candidate.location || "N/A"}</p>
             </div>
+          </div>
+          <div className="shadow-lg border border-gray-200 rounded-xl p-2 flex w-full mt-4">
+            <img src="/logo.png" alt="" className="rounded-lg bg-black h-10 w-10" />
+            <div className="ml-3">
+              <p className="text-xs text-gray-400">Current Company</p>
+              <p className="font-medium">{candidate.current_company || "N/A"}</p>
+            </div>
+          </div>
+        </CardBody>
+    <CardHeader className="pb-0 pt-5 px-5">
+      <h3 className="font-bold text-gray-700">Top Skills</h3>
+    </CardHeader>
+    <CardBody className="p-5 flex flex-wrap flex-row gap-2 -mb-4">
+      {topSkills.length ? topSkills.map((s:string, i:number) => (
+        <Chip key={i} color="primary" variant="solid" size="sm">
+          {s}
+        </Chip>
+      )) : <p className="text-sm text-gray-400">No top skills.</p>}
+    </CardBody>
+    <CardHeader className="pb-0 pt-5 px-5">
+      <h3 className="font-bold text-gray-700">Raw Skills</h3>
+    </CardHeader>
+    <CardBody className="p-5 flex flex-wrap flex-row gap-2 -mb-4">
+      {rawSkills.length ? rawSkills.map((s:string, i:number) => (
+        <Chip key={i} variant="flat" size="sm" className="bg-gray-100 text-gray-700">
+          {s}
+        </Chip>
+      )) : <p className="text-sm text-gray-400">No raw skills.</p>}
+    </CardBody>
+        <CardHeader className="pb-0 pt-5 px-5">
+          <h3 className="font-bold text-gray-700">Contact</h3>
+        </CardHeader>
+        <CardBody className="p-5 space-y-4">
 
-            {/* 3. Right Column: Detailed Info */}
-            <div className="md:col-span-2 space-y-6">
-              
-              {/* Internal Feedback Section (Only if data exists) */}
-              {/* {(candidate.feedback || candidate.remark || candidate.jd_brief) && (
-                <Card className="shadow-sm border border-yellow-200 bg-yellow-50/30">
-                  <CardHeader className="pb-0 pt-5 px-5">
-                    <h3 className="font-bold text-yellow-800 flex items-center gap-2">
-                       <span className="w-2 h-2 rounded-full bg-yellow-500"></span> Internal Remarks
-                    </h3>
-                  </CardHeader>
-                  <CardBody className="p-5 grid grid-cols-1 gap-6">
-                     {candidate.feedback && (
-                       <div>
-                         <p className="text-xs font-semibold text-yellow-700 uppercase mb-1">Feedback</p>
-                         <p className="text-gray-800 text-sm leading-relaxed bg-white/50 p-3 rounded-lg border border-yellow-100">{candidate.feedback}</p>
-                       </div>
-                     )}
-                     {candidate.remark && (
-                       <div>
-                         <p className="text-xs font-semibold text-yellow-700 uppercase mb-1">Remark</p>
-                         <p className="text-gray-800 text-sm leading-relaxed">{candidate.remark}</p>
-                       </div>
-                     )}
-                     {candidate.jd_brief && (
-                       <div>
-                         <p className="text-xs font-semibold text-yellow-700 uppercase mb-1">JD Brief</p>
-                         <p className="text-gray-600 text-sm italic">"{candidate.jd_brief}"</p>
-                       </div>
-                     )}
-                  </CardBody>
-                </Card>
-              )} */}
-
-              {/* Skills Section */}
-              <Card className="shadow-sm border border-gray-100">
-                <CardHeader className="pb-0 pt-5 px-5 flex justify-between">
-                  <h3 className="font-bold text-gray-700">Skills & Expertise</h3>
-                </CardHeader>
-                <CardBody className="p-5">
-                  <div className="flex flex-wrap gap-2">
-                    {allSkills.length > 0 ? allSkills.map((skill, i) => (
-                      <Chip 
-                        key={i} 
-                        variant={topSkills.includes(skill) ? "solid" : "flat"} 
-                        className={`
-                          ${topSkills.includes(skill) ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600"}
-                          border border-transparent
-                        `}
-                      >
-                         {topSkills.includes(skill) && <StarFilledIcon className="inline w-3 h-3 mr-1 text-yellow-400" />}
-                         {skill}
-                      </Chip>
-                    )) : (
-                      <p className="text-gray-400 text-sm">No skills listed.</p>
-                    )}
-                  </div>
-                </CardBody>
-              </Card>
-
-              {/* Preferences Section */}
-              <Card className="shadow-sm border border-gray-100">
-                <CardHeader className="pb-0 pt-5 px-5">
-                  <h3 className="font-bold text-gray-700">Preferences</h3>
-                </CardHeader>
-                <CardBody className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                       <p className="text-xs text-gray-400 uppercase font-semibold mb-2">Preferred Locations</p>
-                       <div className="flex flex-wrap gap-2">
-                         {candidate.preferred_locations && candidate.preferred_locations.length > 0 
-                           ? candidate.preferred_locations.map((l: string, i: number) => (
-                              <span key={i} className="text-sm font-medium text-gray-700 bg-gray-50 px-2 py-1 rounded">{l}</span>
-                           ))
-                           : <span className="text-sm text-gray-400">—</span>
-                         }
-                       </div>
-                    </div>
-                    <div>
-                       <p className="text-xs text-gray-400 uppercase font-semibold mb-2">Preferred Roles</p>
-                       <div className="flex flex-wrap gap-2">
-                         {candidate.preferred_roles && candidate.preferred_roles.length > 0 
-                           ? candidate.preferred_roles.map((r: string, i: number) => (
-                              <span key={i} className="text-sm font-medium text-gray-700 bg-gray-50 px-2 py-1 rounded">{r}</span>
-                           ))
-                           : <span className="text-sm text-gray-400">—</span>
-                         }
-                       </div>
-                    </div>
-                </CardBody>
-              </Card>
-
-              {/* Webpage load using url */}
-              {candidate.resume_url && (
-                <Card className="shadow-sm border border-gray-100">
-                  <CardHeader className="pb-0 pt-5 px-5">
-                    <h3 className="font-bold text-gray-700">Resume Website Preview</h3>
-                  </CardHeader>
-
-                  <CardBody className="p-5">
-                    <iframe
-                      src={toDrivePreview(candidate.resume_url)}
-                      title="Resume Website"
-                      className="w-full h-[500px] rounded border"
-                      sandbox="allow-scripts allow-same-origin allow-popups"
-                    />
-                  </CardBody>
-                </Card>
-              )}
-
+          <div className="flex items-start gap-3">
+            <MailIcon className="w-5 h-5 mt-1 text-gray-500" />
+            <div>
+              <p className="text-xs text-gray-400">Email</p>
+              <p className="font-medium">{candidate.email || "—"}</p>
             </div>
           </div>
 
-        </div>
-      </div>
+          <Divider />
+
+          <div className="flex items-start gap-3">
+            <PhoneIcon className="w-5 h-5 mt-1 text-gray-500" />
+            <div>
+              <p className="text-xs text-gray-400">Phone</p>
+              <p className="font-medium">{candidate.phone || "—"}</p>
+            </div>
+          </div>
+
+        </CardBody>
+  </Card>
+
+    </div> {/* END LEFT SIDEBAR */}
+
+{/* ====================================== */}
+{/* CENTER COLUMN – METRICS + SKILLS */}
+{/* ====================================== */}
+<div className="col-span-1 lg:col-span-2 space-y-6">
+
+  {/* ===== TOP SIX METRICS ===== */}
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+      <Card className="shadow-sm border border-gray-100">
+        <CardBody className="p-4 text-center">
+          <p className="text-[11px] text-gray-400 uppercase">Experience</p>
+          <p className="text-2xl font-bold mt-1">{candidate.total_experience} Yrs</p>
+        </CardBody>
+      </Card>
+      <Card className="shadow-sm border border-gray-100">
+        <CardBody className="p-4 text-center">
+          <p className="text-[11px] text-gray-400 uppercase">Notice Period</p>
+          <p className="text-2xl font-bold mt-1">{candidate.notice_period ?? "—"}</p>
+        </CardBody>
+      </Card>
+      <Card className="shadow-sm border border-gray-100">
+        <CardBody className="p-4 text-center">
+          <p className="text-[11px] text-gray-400 uppercase">Preferred Role</p>
+          <p className="text-2xl font-bold mt-1">{candidate.preferred_roles ?? "—"}</p>
+        </CardBody>
+      </Card>
+      <Card className="shadow-sm border border-gray-100">
+        <CardBody className="p-4 text-center">
+          <p className="text-[11px] text-gray-400 uppercase">Preferred Location</p>
+          <p className="text-2xl font-bold mt-1">{candidate.preferred_locations ?? "—"}</p>
+        </CardBody>
+      </Card>
+  </div>
+
+  {/* ===== Skills Section ===== */}
+
+
+  {/* ===== Preferences ===== */}
+  
+
+  {/* ===== Resume Preview ===== */}
+  {candidate.resume_url && (
+    <Card className="shadow-sm border border-gray-100">
+      <CardHeader className="pb-0 pt-5 px-5">
+        <h3 className="font-bold text-gray-700">Resume Preview</h3>
+      </CardHeader>
+
+      <CardBody className="p-5">
+        <iframe
+          src={toDrivePreview(candidate.resume_url)}
+          className="w-full h-[500px] rounded border border-gray-200"
+        />
+      </CardBody>
+    </Card>
+  )}
+
+</div> {/* END CENTER-COLUMN */}
+
+</div> {/* END GRID */}
+</div> {/* END PAGE WRAPPER */}
+
     </>
   );
 }

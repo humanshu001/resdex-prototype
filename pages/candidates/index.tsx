@@ -1,22 +1,45 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 
 // UI Components
 import { Input } from "@heroui/input";
 import { Button } from "@heroui/button";
-import { Spinner } from "@heroui/spinner";
-import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card";
-import { Chip } from "@heroui/chip";
+import { Card, CardBody, CardFooter } from "@heroui/card";
+import { Skeleton } from "@heroui/skeleton";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Checkbox, CheckboxGroup } from "@heroui/checkbox";
-import { Divider } from "@heroui/divider";
 import { ScrollShadow } from "@heroui/scroll-shadow";
 import { Select, SelectItem } from "@heroui/select";
+import { Chip } from "@heroui/chip"; 
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
 
-// Icons
-import { SearchIcon, MapPinIcon, BriefcaseIcon, AcademicCapIcon, CalendarIcon, StarFilledIcon, Logo } from "@/components/icons"; // Ensure you have these or similar icons
+import { SearchIcon, MapPinIcon, BriefcaseIcon, AcademicCapIcon, CalendarIcon, StarFilledIcon, Logo } from "@/components/icons"; 
 import Link from "next/link";
+import Logout from "@/components/logout";
+
+// Simple X Icon
+const XMarkIcon = ({ className, onClick }: { className?: string, onClick?: () => void }) => (
+  <svg 
+    className={className} 
+    onClick={onClick}
+    xmlns="http://www.w3.org/2000/svg" 
+    width="24" height="24" viewBox="0 0 24 24" 
+    fill="none" stroke="currentColor" strokeWidth="2" 
+    strokeLinecap="round" strokeLinejoin="round"
+  >
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </svg>
+);
+
+const STORAGE_KEY = "resdex_filter_state"; // CONSTANT FOR LOCALSTORAGE KEY
 
 export default function CandidatesPage() {
   const router = useRouter();
@@ -32,67 +55,68 @@ export default function CandidatesPage() {
     preferredRoles: [],
     qualifications: [],
     experienceOptions: [],
+    skills: []
   });
 
   const [candidates, setCandidates] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  // --- Saved Filters State ---
+  const SAVED_FILTERS_KEY = "resdex_saved_filters";
 
-  // -- Filter State (Arrays for Multi-select) --
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [savedListModalOpen, setSavedListModalOpen] = useState(false);
+  const [filterName, setFilterName] = useState("");
+  const [savedFilters, setSavedFilters] = useState<any[]>([]);
+
+
+  // -- Filter Selection State --
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [selectedPortals, setSelectedPortals] = useState<string[]>([]);
   const [selectedNotices, setSelectedNotices] = useState<string[]>([]);
   const [selectedExp, setSelectedExp] = useState<string[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-  const [allSkills, setAllSkills] = useState<string[]>([]);
-  const [searchSkillInput, setSearchSkillInput] = useState("");
   
-  // Single value states
+  // -- Search Inputs for Sidebar --
+  const [searchSkillInput, setSearchSkillInput] = useState("");
+  const [searchLocationInput, setSearchLocationInput] = useState("");
+  
+  // -- Global Search State --
   const [keywords, setKeywords] = useState("");
   const [sort, setSort] = useState("recent");
 
-  useEffect(() => {
-    if (searchSkillInput.trim() === "") {
-      setFilterData((prev: any) => ({ ...prev, skills: allSkills }));
-    } else {
-      const filtered = allSkills.filter((skill) =>
-        skill.toLowerCase().includes(searchSkillInput.toLowerCase())
-      );
-      setFilterData((prev: any) => ({ ...prev, skills: filtered }));
-    }
-  }, [searchSkillInput, allSkills]);
-
-  // Load Filter Options
+  // 1. Load Filter Options
   useEffect(() => {
     axios.get("/api/candidates/filters").then((res) => {
       setFilterData(res.data);
-      setAllSkills(res.data.skills || []);
     }).catch(console.error);
   }, []);
 
-  // Sync from URL on Load
   useEffect(() => {
-    if (!router.isReady) return;
-    const q = router.query;
+    const stored = localStorage.getItem(SAVED_FILTERS_KEY);
+    if (stored) {
+      try {
+        setSavedFilters(JSON.parse(stored));
+      } catch {}
+    }
+  }, []);
 
-    if (q.keywords) setKeywords(String(q.keywords));
-    if (q.sort) setSort(String(q.sort));
-    
-    // Helper to parse comma-separated params back to arrays
-    const parseArr = (val: any) => (typeof val === 'string' ? val.split(',') : []);
-    
-    if (q.location) setSelectedLocations(parseArr(q.location));
-    if (q.company) setSelectedCompanies(parseArr(q.company));
-    if (q.portal) setSelectedPortals(parseArr(q.portal));
-    if (q.notice) setSelectedNotices(parseArr(q.notice));
-    if (q.experience) setSelectedExp(parseArr(q.experience));
-    if (q.skills) setSelectedSkills(parseArr(q.skills));
-    // Trigger initial fetch
-    fetchResults(q);
-  }, [router.isReady]);
 
-  // -- API Call --
-  const fetchResults = async (queryParams: any) => {
+  // 2. Optimization: Memoized Filter Lists
+  const filteredSkills = useMemo(() => {
+    const all = filterData.skills || [];
+    if (!searchSkillInput.trim()) return all;
+    return all.filter((s: string) => s.toLowerCase().includes(searchSkillInput.toLowerCase()));
+  }, [filterData.skills, searchSkillInput]);
+
+  const filteredLocations = useMemo(() => {
+    const all = filterData.locations || [];
+    if (!searchLocationInput.trim()) return all;
+    return all.filter((l: string) => l.toLowerCase().includes(searchLocationInput.toLowerCase()));
+  }, [filterData.locations, searchLocationInput]);
+
+  // 3. Centralized API Fetcher
+  const fetchResults = useCallback(async (queryParams: any) => {
     setLoading(true);
     try {
       const res = await axios.get("/api/candidates/search", { params: queryParams });
@@ -102,311 +126,463 @@ export default function CandidatesPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const handleSaveFilter = () => {
+    if (!filterName.trim()) return;
+
+    const newFilter = {
+      id: Date.now(),
+      name: filterName.trim(),
+      query: router.query
+    };
+
+    const updated = [...savedFilters, newFilter];
+    setSavedFilters(updated);
+    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(updated));
+
+    setFilterName("");
+    setSaveModalOpen(false);
   };
 
-  // -- Apply Search --
+const applySavedFilter = (queryObj: any) => {
+  // Close modal
+  setSavedListModalOpen(false);
+
+  // Push filter params to URL
+  router.push(
+    {
+      pathname: "/candidates",
+      query: queryObj
+    },
+    undefined,
+    { shallow: false }
+  );
+};
+
+
+
+
+  // --- Helper: Robust URL Array Parser ---
+  const parseArr = (val: any): string[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      return decodeURIComponent(val).split(',').filter(Boolean);
+    }
+    return [];
+  };
+
+  // ------------------------------------------------------------------
+  // NEW: RESTORE FILTERS FROM LOCAL STORAGE ON MOUNT
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    // Check if URL has params (Current URL is Source of Truth)
+    const hasQueryParams = Object.keys(router.query).length > 0;
+
+    if (!hasQueryParams) {
+      // URL is empty, check localStorage
+      const savedFilters = localStorage.getItem(STORAGE_KEY);
+      if (savedFilters) {
+        try {
+          const parsedParams = JSON.parse(savedFilters);
+          // If we found saved filters, apply them immediately via router replace
+          if (Object.keys(parsedParams).length > 0) {
+             router.replace({ pathname: "/candidates", query: parsedParams });
+          }
+        } catch (e) {
+          console.error("Error parsing saved filters", e);
+        }
+      }
+    }
+  }, [router.isReady]); // Run once when router becomes ready
+
+  // ------------------------------------------------------------------
+  // 4. MODIFIED: URL SYNC ENGINE & SAVE TO LOCAL STORAGE
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const q = router.query;
+
+    // Update State from URL
+    if (q.keywords) setKeywords(String(q.keywords)); else setKeywords("");
+    if (q.sort) setSort(String(q.sort));
+    
+    setSelectedLocations(parseArr(q.location));
+    setSelectedCompanies(parseArr(q.company));
+    setSelectedPortals(parseArr(q.portal));
+    setSelectedNotices(parseArr(q.notice));
+    setSelectedExp(parseArr(q.experience));
+    setSelectedSkills(parseArr(q.skills));
+
+    // Execute Search
+    fetchResults(q);
+
+    // NEW: Save current valid URL params to localStorage
+    // We filter out internal Next.js properties if necessary, usually query is clean
+    if (Object.keys(q).length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
+    }
+
+  }, [router.isReady, router.query, fetchResults]); 
+
+  // 5. Apply Search
   const applySearch = () => {
     const params: any = {};
-    if (keywords) params.keywords = keywords;
+    if (keywords.trim()) params.keywords = keywords;
     if (sort) params.sort = sort;
 
-    // Join arrays with commas for URL
-    if (selectedLocations.length) params.location = selectedLocations.join(',');
-    if (selectedCompanies.length) params.company = selectedCompanies.join(',');
-    if (selectedPortals.length) params.portal = selectedPortals.join(',');
-    if (selectedNotices.length) params.notice = selectedNotices.join(',');
-    if (selectedExp.length) params.experience = selectedExp.join(',');
-    if (selectedSkills.length) params.skills = selectedSkills.join(',');
+    if (selectedLocations.length > 0) params.location = selectedLocations.join(',');
+    if (selectedCompanies.length > 0) params.company = selectedCompanies.join(',');
+    if (selectedPortals.length > 0) params.portal = selectedPortals.join(',');
+    if (selectedNotices.length > 0) params.notice = selectedNotices.join(',');
+    if (selectedExp.length > 0) params.experience = selectedExp.join(',');
+    if (selectedSkills.length > 0) params.skills = selectedSkills.join(',');
 
-    router.push({ pathname: "/candidates", query: params });
-    fetchResults(params);
+    router.push({ pathname: "/candidates", query: params }, undefined, { shallow: false });
   };
 
+  const removeFilter = (type: string, valueToRemove: string) => {
+    const currentQuery = { ...router.query };
+    
+    const removeFromString = (str: string | string[] | undefined, val: string) => {
+        const arr = parseArr(str);
+        const newArr = arr.filter(item => item !== val);
+        return newArr.length > 0 ? newArr.join(',') : undefined;
+    };
+
+    if (type === 'keywords') {
+        delete currentQuery.keywords;
+    } else {
+        const newValue = removeFromString(currentQuery[type], valueToRemove);
+        if (newValue) {
+            currentQuery[type] = newValue;
+        } else {
+            delete currentQuery[type];
+        }
+    }
+
+    // If query becomes empty after removal, we should also clear storage logic handled in useEffect, 
+    // but explicit clear prevents edge case of empty object saving
+    if (Object.keys(currentQuery).length === 0) {
+       localStorage.removeItem(STORAGE_KEY);
+    }
+
+    router.push({ pathname: "/candidates", query: currentQuery }, undefined, { shallow: false });
+  };
+
+  // ------------------------------------------------------------------
+  // MODIFIED: CLEAR ALL (Also clear storage)
+  // ------------------------------------------------------------------
   const clearFilters = () => {
-    setKeywords("");
-    setSelectedLocations([]);
-    setSelectedCompanies([]);
-    setSelectedPortals([]);
-    setSelectedNotices([]);
-    setSelectedExp([]);
+    localStorage.removeItem(STORAGE_KEY); // Clean storage
+    setSearchSkillInput("");
+    setSearchLocationInput("");
     router.push({ pathname: "/candidates", query: {} });
-    fetchResults({});
   };
-
 
   const handleViewProfile = (candidateId: string) => {
-    // Navigate immediately, then fire-and-forget the logging call so navigation isn't blocked
     try {
         fetch('/api/analytics/view-profile', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
             body: JSON.stringify({ candidateId }),
-        }).catch((err) => console.error('Failed to log profile view', err));
+        }).catch((err) => console.error('Logging error', err));
         router.push(`/candidates/${candidateId}`);
     } catch (error) {
-      console.error('Failed to start profile view logging', error);
+      console.error('Nav error', error);
     }
   };
 
+  // --- Calculate Active Filters for Display ---
+  const activeFilters = [
+    ...(keywords ? [{ type: 'keywords', value: keywords, label: `Search: ${keywords}` }] : []),
+    ...selectedExp.map(e => ({ type: 'experience', value: e, label: filterData.experienceOptions?.find((opt:any) => opt.key === e)?.label || e })),
+    ...selectedSkills.map(s => ({ type: 'skills', value: s, label: s })),
+    ...selectedLocations.map(l => ({ type: 'location', value: l, label: l })),
+    ...selectedCompanies.map(c => ({ type: 'company', value: c, label: c })),
+    ...selectedPortals.map(p => ({ type: 'portal', value: p, label: p })),
+    ...selectedNotices.map(n => ({ type: 'notice', value: n, label: n })),
+  ];
+
   return (
     <>
-    <div className="h-12 px-20 backdrop-blur-sm border-b border-gray-200 flex items-center gap-4 fixed top-0 left-0 right-0 z-10">
+    <div className="h-12 px-20 backdrop-blur-sm border-b border-gray-200 flex justify-between items-center gap-4 fixed top-0 left-0 right-0 z-10 bg-white/80">
       <Link href="/" className="flex items-center gap-2">
         <Logo className="text-black" />
         <span className="font-bold text-black uppercase">ResDex</span>
       </Link>
+      <div className="flex justify-end gap-2">
+        <div className="flex gap-2">
+          <Button size="sm" variant="flat" onPress={() => setSavedListModalOpen(true)}>
+            Saved Filters
+          </Button>
+        </div>
+        <Logout />
+      </div>
     </div>
-    <div className="min-h-screen p-6 flex gap-6 relative max-w-5xl mx-auto pt-18">
+    
+    <div className="min-h-screen p-6 flex gap-6 relative max-w-6xl mx-auto pt-16">
       
-      {/* --- Sticky Sidebar Card --- */}
-      <aside className="w-60 flex-shrink-0 hidden lg:block h-[calc(100vh-10rem)] sticky top-18">
-  <Card className="h-full shadow-lg border border-gray-200 bg-white">
-    
-    {/* Minimal Header with just the Reset action */}
-    <div className="flex justify-end px-4 pt-3">
-      <Button 
-        size="sm" 
-        variant="light" 
-        className="text-xs text-gray-400 hover:text-red-500 h-6 px-2 min-w-0" 
-        onPress={clearFilters}
-      >
-        Clear filters
-      </Button>
-    </div>
-
-    <ScrollShadow className="h-full mt-1">
-      <CardBody className="p-0 px-2">
-        <Accordion 
-          selectionMode="multiple" 
-          defaultExpandedKeys={["exp", "loc", "skills"]}
-          itemClasses={{
-            base: "py-0 w-full",
-            title: "font-medium text-sm text-gray-600",
-            trigger: "py-3",
-            content: "pb-3",
-            indicator: "text-gray-400"
-          }}
-        >
-          
-          {/* Experience */}
-          <AccordionItem key="exp" aria-label="Experience" title="Experience">
-            <CheckboxGroup 
-              value={selectedExp} 
-              onValueChange={setSelectedExp} 
-              classNames={{ wrapper: "gap-1" }}
+      {/* --- Sidebar --- */}
+      <aside className="w-64 flex-shrink-0 hidden lg:block h-[calc(100vh-6rem)] sticky top-20">
+        <Card className="h-full shadow-lg border border-gray-200 bg-white">
+          <div className="flex justify-between items-center px-4 pt-4 pb-2">
+            <h2 className="font-semibold text-gray-700">Filters</h2>
+            <Button 
+              size="sm" 
+              variant="light" 
+              color="danger"
+              className="text-xs h-6 px-2 min-w-0" 
+              onPress={clearFilters}
             >
-              {filterData.experienceOptions?.map((opt: any) => (
-                <Checkbox 
-                  key={opt.key} 
-                  value={opt.key} 
-                  size="sm" 
-                  color="primary" // Changed to primary for a sleeker look, change back to danger if needed
-                  classNames={{ label: "text-small text-gray-500" }}
-                >
-                  {opt.label}
-                </Checkbox>
-              ))}
-            </CheckboxGroup>
-          </AccordionItem>
+              Clear all
+            </Button>
+          </div>
 
-          {/* Skills */}
-          <AccordionItem key="skills" aria-label="Skills" title="Skills">
-            <div className="pb-2">
-              <Input
-                size="sm"
-                variant="flat"
-                radius="md"
-                placeholder="Find skill..."
-                value={searchSkillInput}
-                onChange={(e) => setSearchSkillInput(e.target.value)}
-                startContent={<SearchIcon className="w-3.5 h-3.5 text-gray-400" />}
-                classNames={{
-                  inputWrapper: "bg-gray-100 hover:bg-gray-200/50 h-8 min-h-0",
-                  input: "text-xs"
+          <ScrollShadow className="h-full">
+            <CardBody className="p-0 px-2">
+              <Accordion 
+                selectionMode="multiple" 
+                defaultExpandedKeys={["exp", "loc", "skills"]}
+                itemClasses={{
+                  base: "py-0 w-full",
+                  title: "font-medium text-sm text-gray-700",
+                  trigger: "py-3",
+                  content: "pb-3",
+                  indicator: "text-gray-400"
                 }}
-              />
-            </div>
-            <CheckboxGroup 
-              value={selectedSkills} 
-              onValueChange={setSelectedSkills} 
-              className="max-h-48 overflow-y-auto pr-1 custom-scrollbar"
-              classNames={{ wrapper: "gap-1" }}
-            >
-              {(Array.from(new Set(filterData.skills)) as string[])?.map((skill: string) => (
-                <Checkbox 
-                  key={skill} 
-                  value={skill} 
-                  size="sm" 
-                  color="primary"
-                  classNames={{ label: "text-small text-gray-500" }}
-                >
-                  {skill}
-                </Checkbox>
-              ))}
-            </CheckboxGroup>
-          </AccordionItem>
+              >
+                {/* Experience */}
+                <AccordionItem key="exp" aria-label="Experience" title="Experience">
+                  <CheckboxGroup 
+                    value={selectedExp} 
+                    onValueChange={setSelectedExp} 
+                    classNames={{ wrapper: "gap-1" }}
+                  >
+                    {filterData.experienceOptions?.map((opt: any) => (
+                      <Checkbox key={opt.key} value={opt.key} size="sm" classNames={{ label: "text-small text-gray-500" }}>
+                        {opt.label}
+                      </Checkbox>
+                    ))}
+                  </CheckboxGroup>
+                </AccordionItem>
 
-          {/* Locations */}
-          <AccordionItem key="loc" aria-label="Location" title="Location">
-            <CheckboxGroup 
-              value={selectedLocations} 
-              onValueChange={setSelectedLocations}
-              className="max-h-48 overflow-y-auto pr-1 custom-scrollbar"
-              classNames={{ wrapper: "gap-1" }}
-            >
-              {filterData.locations?.map((loc: string) => (
-                <Checkbox 
-                  key={loc} 
-                  value={loc} 
-                  size="sm"
-                  color="primary"
-                  classNames={{ label: "text-small text-gray-500 truncate" }}
-                >
-                  {loc}
-                </Checkbox>
-              ))}
-            </CheckboxGroup>
-          </AccordionItem>
+                {/* Skills */}
+                <AccordionItem key="skills" aria-label="Skills" title="Skills">
+                  <div className="pb-2 px-1">
+                    <Input
+                      size="sm"
+                      variant="faded"
+                      radius="md"
+                      placeholder="Search skills..."
+                      value={searchSkillInput}
+                      onValueChange={setSearchSkillInput}
+                      startContent={<SearchIcon className="w-3.5 h-3.5 text-gray-400" />}
+                      classNames={{ inputWrapper: "h-8 min-h-0 bg-gray-50", input: "text-xs" }}
+                    />
+                  </div>
+                  <CheckboxGroup 
+                    value={selectedSkills} 
+                    onValueChange={setSelectedSkills} 
+                    className="max-h-48 overflow-y-auto pr-1 custom-scrollbar"
+                    classNames={{ wrapper: "gap-1" }}
+                  >
+                    {filteredSkills.slice(0, 100).map((skill: string) => ( 
+                      <Checkbox key={skill} value={skill} size="sm" classNames={{ label: "text-small text-gray-500" }}>
+                        {skill}
+                      </Checkbox>
+                    ))}
+                  </CheckboxGroup>
+                </AccordionItem>
 
-          {/* Companies */}
-          <AccordionItem key="comp" aria-label="Company" title="Company">
-            <CheckboxGroup 
-              value={selectedCompanies} 
-              onValueChange={setSelectedCompanies}
-              className="max-h-48 overflow-y-auto pr-1 custom-scrollbar"
-              classNames={{ wrapper: "gap-1" }}
-            >
-              {filterData.companies?.map((comp: string) => (
-                <Checkbox 
-                  key={comp} 
-                  value={comp} 
-                  size="sm"
-                  color="primary"
-                  classNames={{ label: "text-small text-gray-500 truncate" }}
-                >
-                  {comp}
-                </Checkbox>
-              ))}
-            </CheckboxGroup>
-          </AccordionItem>
+                {/* Locations */}
+                <AccordionItem key="loc" aria-label="Location" title="Location">
+                   <div className="pb-2 px-1">
+                    <Input
+                      size="sm"
+                      variant="faded"
+                      radius="md"
+                      placeholder="Search location..."
+                      value={searchLocationInput}
+                      onValueChange={setSearchLocationInput}
+                      startContent={<SearchIcon className="w-3.5 h-3.5 text-gray-400" />}
+                      classNames={{ inputWrapper: "h-8 min-h-0 bg-gray-50", input: "text-xs" }}
+                    />
+                  </div>
+                  <CheckboxGroup 
+                    value={selectedLocations} 
+                    onValueChange={setSelectedLocations}
+                    className="max-h-48 overflow-y-auto pr-1 custom-scrollbar"
+                    classNames={{ wrapper: "gap-1" }}
+                  >
+                    {filteredLocations.slice(0, 100).map((loc: string) => (
+                      <Checkbox key={loc} value={loc} size="sm" classNames={{ label: "text-small text-gray-500 truncate" }}>
+                        {loc}
+                      </Checkbox>
+                    ))}
+                  </CheckboxGroup>
+                </AccordionItem>
 
-          {/* Portals */}
-          <AccordionItem key="portal" aria-label="Source" title="Source">
-            <CheckboxGroup 
-              value={selectedPortals} 
-              onValueChange={setSelectedPortals} 
-              classNames={{ wrapper: "gap-1" }}
-            >
-              {filterData.portals?.map((p: string) => (
-                <Checkbox 
-                  key={p} 
-                  value={p} 
-                  size="sm"
-                  color="primary"
-                  classNames={{ label: "text-small text-gray-500" }}
-                >
-                  {p}
-                </Checkbox>
-              ))}
-            </CheckboxGroup>
-          </AccordionItem>
+                {/* Companies */}
+                <AccordionItem key="comp" aria-label="Company" title="Company">
+                  <CheckboxGroup 
+                    value={selectedCompanies} 
+                    onValueChange={setSelectedCompanies}
+                    className="max-h-48 overflow-y-auto pr-1 custom-scrollbar"
+                    classNames={{ wrapper: "gap-1" }}
+                  >
+                    {filterData.companies?.map((comp: string) => (
+                      <Checkbox key={comp} value={comp} size="sm" classNames={{ label: "text-small text-gray-500 truncate" }}>
+                        {comp}
+                      </Checkbox>
+                    ))}
+                  </CheckboxGroup>
+                </AccordionItem>
 
-           {/* Notice Period */}
-           <AccordionItem key="notice" aria-label="Notice" title="Notice Period">
-            <CheckboxGroup 
-              value={selectedNotices} 
-              onValueChange={setSelectedNotices} 
-              classNames={{ wrapper: "gap-1" }}
-            >
-              {filterData.noticePeriods?.map((n: string) => (
-                <Checkbox 
-                  key={n} 
-                  value={n} 
-                  size="sm"
-                  color="primary"
-                  classNames={{ label: "text-small text-gray-500" }}
-                >
-                  {n}
-                </Checkbox>
-              ))}
-            </CheckboxGroup>
-          </AccordionItem>
-
-        </Accordion>
-      </CardBody>
-    </ScrollShadow>
-    
-    <CardFooter className="px-4 py-4 bg-white/50 border-t border-gray-100">
-      <Button 
-        color="primary" 
-        fullWidth 
-        onPress={applySearch} 
-        size="md"
-        radius="lg"
-        className="font-medium shadow-sm"
-      >
-        Apply Filters
-      </Button>
-    </CardFooter>
-  </Card>
-</aside>
+                {/* Portals & Notices */}
+                <AccordionItem key="portal" aria-label="Source" title="Source">
+                  <CheckboxGroup value={selectedPortals} onValueChange={setSelectedPortals} classNames={{ wrapper: "gap-1" }}>
+                    {filterData.portals?.map((p: string) => (
+                      <Checkbox key={p} value={p} size="sm" classNames={{ label: "text-small text-gray-500" }}>{p}</Checkbox>
+                    ))}
+                  </CheckboxGroup>
+                </AccordionItem>
+                 <AccordionItem key="notice" aria-label="Notice" title="Notice Period">
+                  <CheckboxGroup value={selectedNotices} onValueChange={setSelectedNotices} classNames={{ wrapper: "gap-1" }}>
+                    {filterData.noticePeriods?.map((n: string) => (
+                      <Checkbox key={n} value={n} size="sm" classNames={{ label: "text-small text-gray-500" }}>{n}</Checkbox>
+                    ))}
+                  </CheckboxGroup>
+                </AccordionItem>
+              </Accordion>
+            </CardBody>
+          </ScrollShadow>
+          
+          <CardFooter className="px-4 py-4 bg-white/50 border-t border-gray-100">
+            <Button color="primary" fullWidth onPress={applySearch} size="md" radius="lg" className="font-medium shadow-sm">
+              Apply Filters
+            </Button>
+          </CardFooter>
+        </Card>
+      </aside>
 
       {/* --- Main Content --- */}
       <main className="flex-1 flex flex-col gap-6 min-w-0">
-        {/* Results Info */}
-        <div className="flex justify-between items-end px-2">
-          <h1 className="font-semibold text-gray-800">
-            Showing {candidates.length} out of 168 candidates
-          </h1>
-          <Select 
-            selectedKeys={[sort]} 
-            onChange={(e) => setSort(e.target.value)} 
-            className="w-40"
-            classNames={{
-              trigger: "bg-white"
-            }} 
-            size="sm"
-            disallowEmptySelection
-            >
-            <SelectItem key="recent">Newest First</SelectItem>
-            <SelectItem key="oldest">Oldest First</SelectItem>
-          </Select>
+        
+        {/* --- Header: Active Filters & Sorting --- */}
+        <div className="flex flex-col gap-4">
+            <div className="flex flex-col-reverse md:flex-row justify-between items-end md:items-center gap-4 px-2">
+                
+                <div className="flex flex-col gap-1 w-full">
+                    {loading ? (
+                         <Skeleton className="rounded-lg w-48 h-6" />
+                    ) : (
+                         <h1 className="font-semibold text-gray-800">
+                           Found {candidates.length} candidates
+                         </h1>
+                    )}
+                    
+                    {/* --- Active Filters Chips --- */}
+                    {activeFilters.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {activeFilters.map((filter, idx) => (
+                                <div 
+                                    key={`${filter.type}-${filter.value}-${idx}`} 
+                                    className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-medium border border-blue-100 transition-colors hover:bg-blue-100"
+                                >
+                                    <span>{filter.label}</span>
+                                    <XMarkIcon 
+                                        className="w-3.5 h-3.5 cursor-pointer text-blue-400 hover:text-blue-800 transition-colors"
+                                        onClick={() => removeFilter(filter.type, filter.value)}
+                                    />
+                                </div>
+                            ))}
+                            {activeFilters.length > 2 && (
+                                <span 
+                                    className="text-xs text-gray-400 underline cursor-pointer hover:text-red-500 mt-1.5 ml-1"
+                                    onClick={clearFilters}
+                                >
+                                    Clear All
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+               <div className="flex justify-end gap-2">
+                 <Select 
+                    selectedKeys={[sort]} 
+                    onChange={(e) => {
+                      setSort(e.target.value);
+                      const params = { ...router.query, sort: e.target.value };
+                      router.push({ pathname: "/candidates", query: params });
+                    }} 
+                    className="w-40 flex-shrink-0"
+                    classNames={{ trigger: "bg-white" }} 
+                    size="sm"
+                    disallowEmptySelection
+                    >
+                    <SelectItem key="recent">Newest First</SelectItem>
+                    <SelectItem key="oldest">Oldest First</SelectItem>
+                </Select>
+                <Button size="sm" color="primary" onPress={() => setSaveModalOpen(true)}>
+                  Save Filter
+                </Button>
+               </div>
+            </div>
         </div>
 
-        {/* Full Width List */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-            <Spinner size="lg" />
-            <p className="mt-4">Loading candidates...</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {candidates.map((c: any) => (
+        {/* --- Content Area --- */}
+        <div className="flex flex-col gap-4">
+          {loading ? (
+            // --- Skeleton Loader ---
+            Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i} className="w-full border border-transparent">
+                <CardBody className="p-5">
+                  <div className="flex flex-col gap-6">
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="space-y-2">
+                        <Skeleton className="w-40 h-6 rounded-lg" />
+                        <Skeleton className="w-32 h-4 rounded-lg" />
+                      </div>
+                      <Skeleton className="w-20 h-8 rounded-lg" />
+                    </div>
+                    <div className="space-y-3">
+                       <Skeleton className="w-3/4 h-4 rounded-lg" />
+                       <Skeleton className="w-1/2 h-4 rounded-lg" />
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            ))
+          ) : (
+            // --- Actual Cards ---
+            candidates.map((c: any) => (
               <Card key={c.id} className="w-full hover:shadow-md transition-all border border-transparent hover:border-gray-200">
                 <CardBody className="p-5">
                   <div className="flex flex-col gap-6">
-                    
-                    {/* Left: Avatar & Basic Info */}
                     <div className="flex justify-between items-center md:items-start gap-4">
                       <div>
                         <h3 className="text-lg font-bold text-gray-900 text-nowrap">{c.full_name}</h3>
                         <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">{c.current_designation} @ {c.current_company}</p>
                       </div>
-                      <Button onPress={() => handleViewProfile(c.id)} className="mt-2 text-xs border rounded-lg px-2 py-1 bg-gray-50 hover:bg-gray-100 border-gray-200">
-                          View Profile
-                      </Button>
+                      <div className="flex items-center flex-col space-y-3">
+                        <img src="/person.png" alt="" className="rounded-xl w-15 h-15" />
+                        <Button size="sm" onPress={() => handleViewProfile(c.id)} className="mt-2 text-xs border rounded-lg px-2 bg-gray-50 hover:bg-gray-100 border-gray-200">
+                            View Profile
+                        </Button>
+                      </div>
                     </div>
 
-                    {/* Middle: Professional Details */}
-                    <div className="flex-1 border-gray-100 space-y-2">
-                      
-                      {/* Row 1 */}
+                    <div className="flex-1 border-gray-100 space-y-2 -mt-17">
                         <div className="flex items-center gap-2 text-gray-500 font-medium">
                           <BriefcaseIcon className="w-4 h-4 text-gray-400" />
                           {c.total_experience || "Not Specified"} Yrs <span className="border-r border-r-gray-400 p-1 h-5"></span> <MapPinIcon className="w-4 h-4 text-gray-400" /> {c.location || "N/A"}
                         </div>
-
 
                         <div className="flex items-center gap-2 text-gray-500 text-sm">
                           <AcademicCapIcon className="w-4 h-4 text-gray-400" />
@@ -415,29 +591,17 @@ export default function CandidatesPage() {
                           </span>
                         </div>
 
-                      {/* Row 3: Skills (Full Width) */}
                       <div className="text-sm text-gray-500 mt-1">
                         <div className="flex flex-wrap gap-1">
                           {(() => {
-                            const top = (c.top_skills || "")
-                              .split(",")
-                              .map((s : any) => s.trim())
-                              .filter(Boolean);
-
-                            const all = (c.skills_raw || "")
-                              .split(",")
-                              .map((s : any) => s.trim())
-                              .filter(Boolean);
-
+                            const top = (c.top_skills || "").split(",").map((s:any) => s.trim()).filter(Boolean);
+                            const all = (c.skills_raw || "").split(",").map((s:any) => s.trim()).filter(Boolean);
                             const unique = Array.from(new Set([...top, ...all]));
 
                             return unique.length
-                              ? unique.map((skill, i) => (
+                              ? unique.slice(0, 8).map((skill, i) => (
                                   <span key={i} className="flex items-center">
-                                    {
-                                      top.includes(skill) &&
-                                      <StarFilledIcon className="inline w-4 h-4 text-gray-400 mr-0.5" />
-                                    }
+                                    {top.includes(skill) && <StarFilledIcon className="inline w-4 h-4 text-gray-400 mr-0.5" />}
                                     {skill}
                                     {i !== unique.length - 1 ? " • " : ""}
                                   </span>
@@ -453,18 +617,10 @@ export default function CandidatesPage() {
                         <CalendarIcon className="inline w-4 h-4 text-gray-400 mr-1" />
                         <span className="text-gray-600">
                           {(() => {
-                            const created = new Date(c.portal_date);
-                            const now = new Date();
-                            const diffMs = now.getTime() - created.getTime();
-                            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                            if (diffDays < 7) {
-                              return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-                            }
-                            const diffWeeks = Math.floor(diffDays / 7);
-                            if (diffWeeks <= 2) {
-                              return `${diffWeeks} week${diffWeeks === 1 ? "" : "s"} ago`;
-                            }
-                            return "2+ weeks ago";
+                            if(!c.portal_date) return "N/A";
+                            const diffDays = Math.floor((new Date().getTime() - new Date(c.portal_date).getTime()) / (1000 * 3600 * 24));
+                            if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+                            return diffDays < 30 ? `${Math.floor(diffDays / 7)} weeks ago` : "2+ weeks ago";
                           })()}
                         </span>
                       </div>
@@ -472,9 +628,61 @@ export default function CandidatesPage() {
                   </div>
                 </CardBody>
               </Card>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
+
+        <Modal isOpen={saveModalOpen} onClose={() => setSaveModalOpen(false)}>
+          <ModalContent>
+            <ModalHeader className="font-semibold">Save This Filter</ModalHeader>
+            <ModalBody>
+              <Input 
+                label="Filter Name"
+                placeholder="e.g. Senior Developers"
+                value={filterName}
+                onValueChange={setFilterName}
+              />
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="flat" onPress={() => setSaveModalOpen(false)}>Cancel</Button>
+              <Button color="primary" onPress={handleSaveFilter}>Save</Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+        <Modal isOpen={savedListModalOpen} onClose={() => setSavedListModalOpen(false)}>
+          <ModalContent>
+            <ModalHeader className="font-semibold">Saved Filters</ModalHeader>
+            <ModalBody className="flex flex-col gap-3">
+              {savedFilters.length === 0 && (
+                <p className="text-sm text-gray-500">No filters saved yet.</p>
+              )}
+
+              {savedFilters.map((f) => (
+                <Card
+                  key={f.id}
+                  className="border cursor-pointer hover:bg-gray-50"
+                >
+                  <CardBody
+                    className="py-3 cursor-pointer"
+                    onClick={() => applySavedFilter(f.query)}
+                  >
+                    <div className="font-medium">{f.name}</div>
+                    <div className="text-xs text-gray-500 truncate">
+                      {Object.entries(f.query)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(", ")}
+                    </div>
+                  </CardBody>
+                </Card>
+
+              ))}
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="flat" onPress={() => setSavedListModalOpen(false)}>Close</Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
       </main>
     </div>
     </>

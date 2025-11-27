@@ -25,6 +25,7 @@ import {
   SearchIcon,
   Logo,
 } from "@/components/icons";
+import Logout from "./logout";
 
 export const Navbar = () => {
   const searchInput = (
@@ -50,13 +51,14 @@ export const Navbar = () => {
 
   return (
     <HeroUINavbar maxWidth="xl" position="sticky">
-      <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
-        <NavbarBrand className="gap-3 max-w-fit">
+      <NavbarContent className="w-full flex justify-between">
+        <NavbarBrand className="gap-3">
           <NextLink className="flex justify-start items-center gap-1" href="/">
             <Logo />
             <p className="font-bold text-inherit">RESDEX</p>
           </NextLink>
         </NavbarBrand>
+        <Logout />
       </NavbarContent>
     </HeroUINavbar>
   );
