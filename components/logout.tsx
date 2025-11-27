@@ -39,7 +39,7 @@ export default function Logout({ label = 'Logout', className, onSuccess, onError
   }
 
   return (
-    <Button onClick={handleLogout} disabled={loading} className={className} size='sm' color='danger' variant='faded'>
+    <Button onClick={handleLogout} disabled={loading} className={className} size='sm' color='danger' variant='flat'>
       {loading ? 'Logging out...' : label}
     </Button>
   )

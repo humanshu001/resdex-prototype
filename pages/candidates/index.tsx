@@ -317,9 +317,6 @@ const applySavedFilter = (queryObj: any) => {
       </Link>
       <div className="flex justify-end gap-2">
         <div className="flex gap-2">
-          <Button size="sm" variant="flat" onPress={() => setSavedListModalOpen(true)}>
-            Saved Filters
-          </Button>
         </div>
         <Logout />
       </div>
@@ -331,12 +328,13 @@ const applySavedFilter = (queryObj: any) => {
       <aside className="w-64 flex-shrink-0 hidden lg:block h-[calc(100vh-6rem)] sticky top-20">
         <Card className="h-full shadow-lg border border-gray-200 bg-white">
           <div className="flex justify-between items-center px-4 pt-4 pb-2">
-            <h2 className="font-semibold text-gray-700">Filters</h2>
+            <Button size="sm" variant="flat" onPress={() => setSavedListModalOpen(true)}>
+              Saved Filters
+            </Button>
             <Button 
               size="sm" 
-              variant="light" 
+              variant="flat" 
               color="danger"
-              className="text-xs h-6 px-2 min-w-0" 
               onPress={clearFilters}
             >
               Clear all
