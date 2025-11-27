@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model candidates {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  full_name        String
+  email            String?
+  phone            String?
+  gender           String?
+  location         String?
+  resume_url       String?
+  source_portal    String?
+  portal_unique_id String?
+  portal_date      DateTime?
+
+  // Education & Skills (New Fields from Excel)
+  qualification String?
+  college_name  String?
+  top_skills    String?
+  skills_raw    String? // Maps to 'Skills (All)'
+
+  // Experience Details
+  total_experience    Decimal? @db.Decimal(5, 2) // Parsed from "1 yr", "Fresher", "18M"
+  relevant_experience Decimal? @db.Decimal(5, 2)
+  experience_years    Decimal? @db.Decimal(5, 2) // Calculated or backup
+
+  // Work History
+  current_company     String?
+  current_designation String?
+  companies_raw       String? // Maps to 'Company Names (All)'
+
+  // Dates (New Fields from Excel)
+  apply_date   DateTime?
+  calling_date DateTime?
+
+  // Compensation (Changed to String to handle "30% hike", "14k", "3.5 LPA")
+  current_ctc  String?
+  expected_ctc String?
+
+  // Feedback & Status
+  feedback     String? // Maps to 'Feedback' (long text)
+  remark       String? // Maps to 'Remark'
+  jd_brief     String? // Maps to 'JD Brief'
+  ctc_feedback String? // Backup for other feedback
+
+  // Legacy/Standard fields (kept for structure)
+  notice_period       String?
+  preferred_roles     String[]
+  preferred_locations String[]
+  employment_type     String?
+  year_of_birth       Int?
+
+  searchable Unsupported("tsvector")?
+
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  // Back-relation to profile_views
+  profile_views profile_views[]
+
+  @@index([total_experience], map: "idx_candidates_exp")
+  @@index([location], map: "idx_candidates_location")
+  @@index([searchable], map: "idx_candidates_search_gin", type: Gin)
+  @@index([updated_at(sort: Desc)], map: "idx_candidates_updated")
+}
+
+model users {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  full_name  String
+  email      String
+  password   String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Back-relation to profile_views
+  profile_views profile_views[]
+}
+
+model profile_views {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  viewer_id    String? @db.Uuid
+  candidate_id String  @db.Uuid
+
+  // Relations
+  viewer           users?     @relation(fields: [viewer_id], references: [id])
+  candidate        candidates @relation(fields: [candidate_id], references: [id])
+  viewed_at        DateTime   @default(now()) @db.Timestamptz(6)
+  resume_viewed    Boolean    @default(false)
+  resume_viewed_at DateTime?
+
+  @@index([viewer_id], map: "idx_profile_views_viewer")
+  @@index([candidate_id], map: "idx_profile_views_candidate")
+}
