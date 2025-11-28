@@ -5,37 +5,43 @@ import DefaultLayout from "@/layouts/default";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 
-// Simple Close Icon Component for the Tags
-const CloseIcon = ({ className, onClick }: { className?: string, onClick?: () => void }) => (
+// Helper for the Map Pin Icon (for location suggestions)
+const LocationIcon = ({ className }: { className?: string }) => (
   <svg 
     className={className} 
-    onClick={onClick}
     xmlns="http://www.w3.org/2000/svg" 
     width="24" height="24" viewBox="0 0 24 24" 
     fill="none" stroke="currentColor" strokeWidth="2" 
     strokeLinecap="round" strokeLinejoin="round"
   >
-    <path d="M18 6 6 18" />
-    <path d="m6 6 12 12" />
+    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+    <circle cx="12" cy="10" r="3" />
   </svg>
 );
 
 export default function HomePage() {
   const router = useRouter();
-  
-  // --- State for Multi-Select Keywords ---
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  
+
+  // --- Search State ---
+  const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
   const [experience, setExperience] = useState("");
+
+  // --- Suggestions Data State ---
+  const [allKeywords, setAllKeywords] = useState<string[]>([]);
+  const [allLocations, setAllLocations] = useState<string[]>([]);
   
-  // --- Suggestions State ---
-  const [allSuggestions, setAllSuggestions] = useState<string[]>([]);
-  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const suggestionRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  // --- Filtered Results State ---
+  const [filteredKeywords, setFilteredKeywords] = useState<string[]>([]);
+  const [filteredLocations, setFilteredLocations] = useState<string[]>([]);
+  
+  // --- Visibility State ---
+  const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+
+  // --- Refs for Click Outside Logic ---
+  const keywordRef = useRef<HTMLDivElement>(null);
+  const locationRef = useRef<HTMLDivElement>(null);
 
   // 1. Fetch Data
   useEffect(() => {
@@ -43,10 +49,21 @@ export default function HomePage() {
       try {
         const response = await fetch("/api/candidates/filters");
         const data = await response.json();
-        if (data && data.skills && data.companies) {
-          const combined = Array.from(new Set([...data.skills, ...data.companies]));
-          setAllSuggestions(combined);
+        
+        // Setup Keywords (Skills + Companies)
+        if (data && (data.skills || data.companies)) {
+          const combined = Array.from(new Set([...(data.skills || []), ...(data.companies || [])]));
+          setAllKeywords(combined);
         }
+
+        // Setup Locations (Assuming data.locations exists, otherwise empty)
+        if (data && data.locations) {
+           setAllLocations(data.locations);
+        } else {
+            // Fallback example if your API doesn't return locations yet
+            setAllLocations(["New York", "London", "Remote", "Bangalore", "Mumbai", "San Francisco"]);
+        }
+
       } catch (error) {
         console.error("Failed to fetch suggestions:", error);
       }
@@ -54,11 +71,19 @@ export default function HomePage() {
     fetchFilters();
   }, []);
 
-  // 2. Click Outside Handler
+  // 2. Click Outside Handler (Handles both dropdowns)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (suggestionRef.current && !suggestionRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
+      const target = event.target as Node;
+      
+      // Close Keyword Dropdown if clicked outside
+      if (keywordRef.current && !keywordRef.current.contains(target)) {
+        setShowKeywordSuggestions(false);
+      }
+
+      // Close Location Dropdown if clicked outside
+      if (locationRef.current && !locationRef.current.contains(target)) {
+        setShowLocationSuggestions(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -73,65 +98,50 @@ export default function HomePage() {
     { key: "10+", label: "10+ years" },
   ];
 
-  // --- Tag/Keyword Logic ---
-
-  const handleInputChange = (val: string) => {
-    setInputValue(val);
-    
+  // --- Keyword Logic ---
+  const handleKeywordChange = (val: string) => {
+    setKeyword(val);
     if (val.trim().length > 0) {
-      const lowerVal = val.toLowerCase();
-      // Filter matches, but EXCLUDE items already selected
-      const matches = allSuggestions
-        .filter(item => 
-          item.toLowerCase().includes(lowerVal) && 
-          !selectedKeywords.includes(item)
-        )
+      const matches = allKeywords
+        .filter(item => item.toLowerCase().includes(val.toLowerCase()))
         .slice(0, 10);
-      
-      setFilteredSuggestions(matches);
-      setShowSuggestions(matches.length > 0);
+      setFilteredKeywords(matches);
+      setShowKeywordSuggestions(matches.length > 0);
     } else {
-      setShowSuggestions(false);
+      setShowKeywordSuggestions(false);
     }
   };
 
-  const addKeyword = (keyword: string) => {
-    if (keyword.trim() && !selectedKeywords.includes(keyword)) {
-      setSelectedKeywords([...selectedKeywords, keyword]);
-      setInputValue(""); // Clear input
-      setShowSuggestions(false);
-      inputRef.current?.focus(); // Keep focus for rapid typing
+  const selectKeyword = (val: string) => {
+    setKeyword(val);
+    setShowKeywordSuggestions(false);
+  };
+
+  // --- Location Logic ---
+  const handleLocationChange = (val: string) => {
+    setLocation(val);
+    if (val.trim().length > 0) {
+      const matches = allLocations
+        .filter(item => item.toLowerCase().includes(val.toLowerCase()))
+        .slice(0, 5); // Limit location suggestions
+      setFilteredLocations(matches);
+      setShowLocationSuggestions(matches.length > 0);
+    } else {
+      setShowLocationSuggestions(false);
     }
   };
 
-  const removeKeyword = (keywordToRemove: string) => {
-    setSelectedKeywords(selectedKeywords.filter(k => k !== keywordToRemove));
+  const selectLocation = (val: string) => {
+    setLocation(val);
+    setShowLocationSuggestions(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      // Add current input value as a tag if it exists
-      if (inputValue.trim()) {
-        addKeyword(inputValue.trim());
-      }
-    } else if (e.key === "Backspace" && inputValue === "" && selectedKeywords.length > 0) {
-      // Remove last tag if input is empty (User experience like generic tag inputs)
-      const newKeywords = [...selectedKeywords];
-      newKeywords.pop();
-      setSelectedKeywords(newKeywords);
-    }
-  };
-
+  // --- Search Handler ---
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params: any = {};
     
-    // Combine selected tags + current input text (if any)
-    const finalKeywords = [...selectedKeywords];
-    if (inputValue.trim()) finalKeywords.push(inputValue.trim());
-
-    if (finalKeywords.length > 0) params.keywords = finalKeywords.join(",");
+    if (keyword.trim()) params.keywords = keyword.trim();
     if (location.trim()) params.location = location.trim();
     if (experience) params.experience = experience;
     
@@ -148,42 +158,25 @@ export default function HomePage() {
 
         <form onSubmit={handleSearch} className="max-w-5xl w-full flex items-center gap-4 bg-white rounded-full shadow-lg px-6 py-3 relative z-20">
           
-          {/* --- Multi-Select Input Area --- */}
-          <div className="flex flex-wrap items-center gap-2 flex-[2] relative" ref={suggestionRef}>
+          {/* --- Keyword Input Area --- */}
+          <div className="relative flex items-center gap-2 flex-[2]" ref={keywordRef}>
             <SearchIcon className="w-5 h-5 text-gray-400 shrink-0" />
-            
-            <div className="flex flex-wrap gap-2 flex-1 min-w-0 max-h-17 overflow-y-auto">
-              {/* Render Selected Tags */}
-              {selectedKeywords.map((keyword, index) => (
-                <div key={index} className="flex items-center gap-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm">
-                  <span>{keyword}</span>
-                  <CloseIcon 
-                    className="w-3 h-3 cursor-pointer hover:text-blue-900" 
-                    onClick={() => removeKeyword(keyword)}
-                  />
-                </div>
-              ))}
+            <input 
+              type="text" 
+              placeholder="Skill, Name, Company..."
+              className="w-full bg-transparent outline-none text-gray-700 placeholder:text-gray-400 h-10"
+              value={keyword} 
+              onChange={(e) => handleKeywordChange(e.target.value)}
+              onFocus={() => { if(keyword && filteredKeywords.length > 0) setShowKeywordSuggestions(true) }}
+            />
 
-              {/* The Input Field */}
-              <input 
-                ref={inputRef}
-                type="text" 
-                placeholder={selectedKeywords.length > 0 ? "" : "Skill, Name, Company..."}
-                className="bg-transparent outline-none text-gray-700 placeholder:text-gray-400 flex-1 min-w-[100px] h-8"
-                value={inputValue} 
-                onChange={(e) => handleInputChange(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onFocus={() => { if(inputValue && filteredSuggestions.length > 0) setShowSuggestions(true) }}
-              />
-            </div>
-
-            {/* --- Suggestions Dropdown --- */}
-            {showSuggestions && (
-              <ul className="absolute top-full left-0 right-0 mt-4 bg-white border border-gray-100 rounded-xl shadow-xl max-h-[300px] overflow-y-auto z-50 py-2">
-                {filteredSuggestions.map((suggestion, index) => (
+            {/* Keyword Suggestions Dropdown */}
+            {showKeywordSuggestions && (
+              <ul className="absolute top-full left-[-20px] right-0 mt-4 bg-white border border-gray-100 rounded-xl shadow-xl max-h-[300px] overflow-y-auto z-50 py-2 w-[calc(100%+20px)]">
+                {filteredKeywords.map((suggestion, index) => (
                   <li 
                     key={index}
-                    onClick={() => addKeyword(suggestion)}
+                    onClick={() => selectKeyword(suggestion)}
                     className="px-5 py-2.5 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 transition-colors flex items-center gap-2"
                   >
                     <SearchIcon className="w-3 h-3 text-gray-300" />
@@ -196,14 +189,48 @@ export default function HomePage() {
 
           <div className="w-px bg-gray-200 h-8 hidden sm:block" />
 
-          <div className="hidden sm:flex items-center gap-3 flex-1">
-            <input type="text" placeholder="City (e.g. Panipat)" className="w-full bg-transparent outline-none text-gray-700 placeholder:text-gray-400" value={location} onChange={(e) => setLocation(e.target.value)} />
+          {/* --- Location Input Area --- */}
+          <div className="hidden sm:flex relative items-center gap-2 flex-1" ref={locationRef}>
+            <LocationIcon className="w-5 h-5 text-gray-400 shrink-0" />
+            <input 
+              type="text" 
+              placeholder="City or Remote" 
+              className="w-full bg-transparent outline-none text-gray-700 placeholder:text-gray-400 h-10"
+              value={location} 
+              onChange={(e) => handleLocationChange(e.target.value)}
+              onFocus={() => { if(location && filteredLocations.length > 0) setShowLocationSuggestions(true) }}
+            />
+
+            {/* Location Suggestions Dropdown */}
+            {showLocationSuggestions && (
+              <ul className="absolute top-full left-[-10px] right-0 mt-4 bg-white border border-gray-100 rounded-xl shadow-xl max-h-[300px] overflow-y-auto z-50 py-2 w-[calc(100%+10px)]">
+                {filteredLocations.map((suggestion, index) => (
+                  <li 
+                    key={index}
+                    onClick={() => selectLocation(suggestion)}
+                    className="px-5 py-2.5 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 transition-colors flex items-center gap-2"
+                  >
+                    <LocationIcon className="w-3 h-3 text-gray-300" />
+                    {suggestion}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="w-px bg-gray-200 h-8 hidden sm:block" />
 
-          <div className="hidden sm:block">
-            <Select selectedKeys={experience ? [experience] : []} onSelectionChange={(keys) => { if (keys instanceof Set) setExperience(String(Array.from(keys)[0] ?? "")); }} placeholder="Experience">
+          {/* --- Experience Select --- */}
+          <div className="hidden sm:block min-w-[150px]">
+            <Select 
+              selectedKeys={experience ? [experience] : []} 
+              onSelectionChange={(keys) => { if (keys instanceof Set) setExperience(String(Array.from(keys)[0] ?? "")); }} 
+              placeholder="Experience"
+              classNames={{
+                trigger: "bg-transparent shadow-none hover:bg-transparent data-[hover=true]:bg-transparent",
+                value: "text-gray-700",
+              }}
+            >
               {experienceOptions.map((option) => (<SelectItem key={option.key}>{option.label}</SelectItem>))}
             </Select>
           </div>
