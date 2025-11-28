@@ -198,8 +198,32 @@ export default function CandidateProfilePage({ candidate }: Props) {
       </Card>
       <Card className="shadow-sm border border-gray-100">
         <CardBody className="p-4 text-center">
-          <p className="text-[11px] text-gray-400 uppercase">Preferred Location</p>
-          <p className="text-2xl font-bold mt-1">{candidate.preferred_locations ?? "—"}</p>
+          {candidate.resume_url ? (
+            <Button
+              onClick={async (e: any) => {
+                e.preventDefault();
+                try {
+                  await fetch('/api/analytics/view-resume', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ candidateId: candidate.id }),
+                  });
+                } catch (err) {
+                  console.error('Failed to log resume view', err);
+                } finally {
+                  // Open resume in a new tab regardless of logging result
+                  window.open(candidate.resume_url, '_blank');
+                }
+              }}
+              color="primary"
+              className="px-8 font-semibold shadow-md"
+            >
+              View Resume
+            </Button>
+          ) : (
+            <Button disabled variant="flat" className="px-8 opacity-50">No Resume</Button>
+          )}
         </CardBody>
       </Card>
   </div>

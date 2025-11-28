@@ -569,7 +569,9 @@ const applySavedFilter = (queryObj: any) => {
                         <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">{c.current_designation} @ {c.current_company}</p>
                       </div>
                       <div className="flex items-center flex-col space-y-3">
-                        <img src="/person.png" alt="" className="rounded-xl w-15 h-15" />
+                        <div className="rounded-xl w-15 h-15 bg-gradient-to-r from-yellow-200 to-white">
+                          {c.full_name?.charAt(0).toUpperCase()}
+                        </div>
                         <Button size="sm" onPress={() => handleViewProfile(c.id)} className="mt-2 text-xs border rounded-lg px-2 bg-gray-50 hover:bg-gray-100 border-gray-200">
                             View Profile
                         </Button>
