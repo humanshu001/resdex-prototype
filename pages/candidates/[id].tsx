@@ -86,7 +86,9 @@ export default function CandidateProfilePage({ candidate }: Props) {
         <CardBody className="py-6 flex flex-col items-start text-center -mb-4">
           <div className="w-full pl-3 z-10">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gray-700 to-black text-white flex items-center justify-start text-3xl font-bold mt-5 z-10 border-4 border-white">
-            <img src="/person.png" alt="" className="w-full h-full rounded-xl" />
+            <div className="rounded-xl w-full h-full bg-gradient-to-r from-yellow-200 to-white">
+              {candidate.full_name?.charAt(0).toUpperCase()}
+            </div>
           </div>
           </div>
           
