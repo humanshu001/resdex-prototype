@@ -152,10 +152,10 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center gap-2 flex-[2] relative" ref={suggestionRef}>
             <SearchIcon className="w-5 h-5 text-gray-400 shrink-0" />
             
-            <div className="flex flex-wrap gap-2 flex-1 min-w-0">
+            <div className="flex flex-wrap gap-2 flex-1 min-w-0 max-h-17 overflow-y-auto">
               {/* Render Selected Tags */}
               {selectedKeywords.map((keyword, index) => (
-                <div key={index} className="flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-sm">
+                <div key={index} className="flex items-center gap-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm">
                   <span>{keyword}</span>
                   <CloseIcon 
                     className="w-3 h-3 cursor-pointer hover:text-blue-900" 
